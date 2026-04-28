@@ -23,7 +23,7 @@ const GameDetailPage = () => {
       gap={5}
     >
       <GridItem>
-        <Heading>{game.name}</Heading>
+        <Heading size={"3xl"}>{game.name}</Heading>
         <ExpandableText>{game.description_raw}</ExpandableText>
         <GameAttributes game={game} />
       </GridItem>
