@@ -1,73 +1,240 @@
-# React + TypeScript + Vite
+# Game Hub
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + Vite game discovery dashboard built with Chakra UI, React Router, React Query, Zustand, and the RAWG video games API.
 
-Currently, two official plugins are available:
+## 🚀 Project Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Game Hub lets users browse games with:
 
-## React Compiler
+- infinite scroll game grid
+- platform filters
+- genre filters
+- sort options
+- search
+- dark/light mode support
+- responsive layout for desktop and mobile
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Desktop Preview
 
-## Expanding the ESLint configuration
+![](/public/screenshots/home-desktop.png)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+![](/public/screenshots/game-desktop.png)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
+### Mobile Preview
+
+![](/public/screenshots/mobile-home.png)
+
+## 🔧 Tech Stack
+
+- React 19
+- Vite
+- TypeScript
+- Chakra UI
+- React Router DOM
+- React Query (@tanstack/react-query)
+- Zustand
+- Axios
+- RAWG API
+
+## 📁 Key Architecture
+
+- `src/main.tsx` sets up global providers:
+  - `ChakraProvider`
+  - `ColorModeProvider`
+  - `QueryClientProvider`
+  - `RouterProvider`
+- `src/routes.tsx` defines the application routes:
+  - `/` → `HomePage`
+  - `/games/:slug` → `GameDetailPage`
+
+```ts
+import { createBrowserRouter } from "react-router-dom";
+import Layout from "./pages/Layout";
+import HomePage from "./pages/HomePage";
+import GameDetailPage from "./pages/GameDetailPage";
+import ErrorPage from "./pages/ErrorPage";
+
+const router = createBrowserRouter([
   {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
+    path: "/",
+    element: <Layout />,
+    errorElement: <ErrorPage />,
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: "games/:slug", element: <GameDetailPage /> },
     ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
   },
-])
+]);
+
+export default router;
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🧠 Data Fetching & State
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+The app uses `zustand` for filter state and `@tanstack/react-query` for paginated game fetching.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
+### API client
+
+`src/services/api-client.ts` abstracts RAWG requests:
+
+```ts
+import axios, { type AxiosRequestConfig } from "axios";
+
+export interface FetchResponse<T> {
+  count: number;
+  results: T[];
+  next: string | null;
+}
+
+const axiosInstance = axios.create({
+  baseURL: "https://api.rawg.io/api",
+  params: {
+    key: "a6c4c31bb05c4347be4f4444c2c1abd4",
   },
-])
+});
+
+class APIClient<T> {
+  endpoint: string;
+
+  constructor(endpoint: string) {
+    this.endpoint = endpoint;
+  }
+
+  getAll = (config: AxiosRequestConfig) =>
+    axiosInstance
+      .get<FetchResponse<T>>(this.endpoint, config)
+      .then((res) => res.data);
+
+  get = (id: number | string) =>
+    axiosInstance.get<T>(this.endpoint + "/" + id).then((res) => res.data);
+}
+
+export default APIClient;
 ```
+
+### Global query store
+
+`src/store.ts` keeps the selected genre, platform, sort order, and search text:
+
+```ts
+import { create } from "zustand";
+
+interface GameQueryStore {
+  gameQuery: {
+    genreId?: number;
+    platformId?: number;
+    sortOrder?: string;
+    searchText?: string;
+  };
+  setSearchText: (searchText: string) => void;
+  setGenreId: (genreId: number) => void;
+  setPlatformId: (platformId: number) => void;
+  setSortOrder: (sortOrder: string) => void;
+}
+
+const useGameQueryStore = create<GameQueryStore>((set) => ({
+  gameQuery: {},
+  setSearchText: (searchText) => set(() => ({ gameQuery: { searchText } })),
+  setGenreId: (genreId) =>
+    set((store) => ({ gameQuery: { ...store.gameQuery, genreId } })),
+  setPlatformId: (platformId) =>
+    set((store) => ({ gameQuery: { ...store.gameQuery, platformId } })),
+  setSortOrder: (sortOrder) =>
+    set((store) => ({ gameQuery: { ...store.gameQuery, sortOrder } })),
+}));
+
+export default useGameQueryStore;
+```
+
+## 📦 Infinite Scroll Game Grid
+
+The homepage renders a paginated game grid and loads more games as the user scrolls.
+
+```tsx
+import useGames from "@/hooks/useGames";
+import { SimpleGrid, Spinner, Text } from "@chakra-ui/react";
+import InfiniteScroll from "react-infinite-scroll-component";
+
+const GameGrid = () => {
+  const { data, error, isLoading, fetchNextPage, hasNextPage } = useGames();
+
+  if (error) return <Text>{error.message}</Text>;
+
+  return (
+    <InfiniteScroll
+      dataLength={
+        data?.pages.reduce((total, page) => total + page.results.length, 0) || 0
+      }
+      hasMore={!!hasNextPage}
+      next={() => fetchNextPage()}
+      loader={<Spinner />}
+    >
+      <SimpleGrid columns={{ sm: 1, md: 2, lg: 3, xl: 4 }} gap={6}>
+        {/* cards here */}
+      </SimpleGrid>
+    </InfiniteScroll>
+  );
+};
+```
+
+## ⚙️ Installation
+
+```bash
+npm install
+```
+
+## 🧪 Run locally
+
+```bash
+npm run dev
+```
+
+Open the local URL shown in the terminal.
+
+## 🔨 Build for production
+
+```bash
+npm run build
+```
+
+Preview a production build:
+
+```bash
+npm run preview
+```
+
+## 💡 Customization
+
+- Update API key in `src/services/api-client.ts`
+- Add or modify filter options in `src/components/GenreList.tsx`, `src/components/PlatformSelector.tsx`, and `src/components/SortSelector.tsx`
+- Adjust layout and theming in `src/components/ui/provider.tsx` and `src/index.css`
+
+## 📷 Screenshots
+
+1. Home page with filters and grid
+   - `docs/screenshots/homepage.png`
+2. Game detail page with trailer and screenshots
+   - `docs/screenshots/game-detail.png`
+3. Mobile layout
+   - `docs/screenshots/mobile.png`
+
+> Replace these placeholders with real images in the docs folder or the repository root.
+
+## 🧭 Project Structure
+
+- `src/pages/` — page-level routes and layouts
+- `src/components/` — reusable UI components
+- `src/hooks/` — data fetching hooks
+- `src/services/` — API and utility services
+- `src/store.ts` — Zustand state store
+- `src/entities/` — type definitions for game models
+
+## 📌 Notes
+
+- `@tanstack/react-query` caches game data and handles infinite loading.
+- `Chakra UI` is used for responsive layout, theming, and accessible components.
+- The app consumes the RAWG API and currently uses a hard-coded API key in `api-client.ts`.
+
+## 📝 License
+
+This project is open source and free to use.
