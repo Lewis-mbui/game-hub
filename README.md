@@ -209,17 +209,6 @@ npm run preview
 - Add or modify filter options in `src/components/GenreList.tsx`, `src/components/PlatformSelector.tsx`, and `src/components/SortSelector.tsx`
 - Adjust layout and theming in `src/components/ui/provider.tsx` and `src/index.css`
 
-## 📷 Screenshots
-
-1. Home page with filters and grid
-   - `docs/screenshots/homepage.png`
-2. Game detail page with trailer and screenshots
-   - `docs/screenshots/game-detail.png`
-3. Mobile layout
-   - `docs/screenshots/mobile.png`
-
-> Replace these placeholders with real images in the docs folder or the repository root.
-
 ## 🧭 Project Structure
 
 - `src/pages/` — page-level routes and layouts
